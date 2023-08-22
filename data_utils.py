@@ -2,9 +2,11 @@ import os
 import torch
 import pandas as pd
 from torchvision import datasets, transforms, models
+from models.googlenet import *
+from models.transforms import test_transform, imagenet_normalize
 
-DATASET_ROOTS = {"imagenet_val": "YOUR_PATH/ImageNet_val/",
-                "broden": "data/broden1_224/images/"}
+DATASET_ROOTS = {"imagenet_val": "/mnt/qb/datasets/ImageNet2012/val",
+                "broden": "/mnt/qb/work/bethge/bkr046/DATASETS/broden1_224_CLIP_dissect/images/"}
 
 
 def get_target_model(target_name, device):
@@ -35,6 +37,17 @@ def get_target_model(target_name, device):
         weights = eval("models.{}_Weights.IMAGENET1K_V1".format(target_name_cap))
         preprocess = weights.transforms()
         target_model = eval("models.{}(weights=weights).to(device)".format(target_name))
+    elif 'googlenet_with_descriptors_pretrained':
+        target_model = googlenet(
+            weights=GoogLeNet_Weights.IMAGENET1K_V1,
+            num_classes=1000,
+            transform_input=True, # transform inputs when using the pretrained Googlenet
+            descriptor_dim=256,
+        ).to(device)
+        preprocess = transforms.Compose([
+            test_transform,
+            imagenet_normalize,
+        ])
     
     target_model.eval()
     return target_model, preprocess

@@ -47,8 +47,7 @@ def cos_similarity(clip_feats, target_feats, device='cuda'):
     return torch.cat(similarities, dim=0)
 
 def soft_wpmi(clip_feats, target_feats, top_k=100, a=10, lam=1, device='cuda',
-                        min_prob=1e-7, p_start=0.998, p_end=0.97):
-    
+                        min_prob=1e-7, p_start=0.998, p_end=0.97):    
     with torch.no_grad():
         torch.cuda.empty_cache()
         clip_feats = torch.nn.functional.softmax(a*clip_feats, dim=1)

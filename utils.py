@@ -16,6 +16,8 @@ def get_activation(outputs, mode):
     '''
     if mode=='avg':
         def hook(model, input, output):
+            if len(output) == 2:    # if output is a tuple with activations and other stuff
+                output = output[0]
             if len(output.shape)==4: #CNN layers
                 outputs.append(output.mean(dim=[2,3]).detach())
             elif len(output.shape)==3: #ViT
@@ -48,32 +50,53 @@ def save_target_activations(target_model, dataset, save_name, target_layers = ["
     save_name: save_file path, should include {} which will be formatted by layer names
     """
     _make_save_dir(save_name)
-    save_names = {}    
+    save_names = {}
     for target_layer in target_layers:
         save_names[target_layer] = save_name.format(target_layer)
-        
-    if _all_saved(save_names):
-        return
-    
-    all_features = {target_layer:[] for target_layer in target_layers}
-    
-    hooks = {}
-    for target_layer in target_layers:
-        command = "target_model.{}.register_forward_hook(get_activation(all_features[target_layer], pool_mode))".format(target_layer)
-        hooks[target_layer] = eval(command)
-    
-    with torch.no_grad():
-        for images, labels in tqdm(DataLoader(dataset, batch_size, num_workers=8, pin_memory=True)):
-            features = target_model(images.to(device))
     
     for target_layer in target_layers:
-        torch.save(torch.cat(all_features[target_layer]), save_names[target_layer])
-        hooks[target_layer].remove()
+
+        all_features = []
+        with torch.no_grad():
+            for images, labels in tqdm(DataLoader(dataset, batch_size, num_workers=8, pin_memory=True)):
+                output = target_model(images.to(device))
+                intermediate_features = output.intermediate_activations[target_layer]
+                all_features.append(intermediate_features.detach().cpu())
+
+
+        torch.save(torch.cat(all_features), save_names[target_layer])
+
     #free memory
     del all_features
     torch.cuda.empty_cache()
     return
 
+    # _make_save_dir(save_name)
+    # save_names = {}    
+    # for target_layer in target_layers:
+    #     save_names[target_layer] = save_name.format(target_layer)
+        
+    # if _all_saved(save_names):
+    #     return
+    
+    # all_features = {target_layer:[] for target_layer in target_layers}
+    
+    # hooks = {}
+    # for target_layer in target_layers:
+    #     command = "target_model.{}.register_forward_hook(get_activation(all_features[target_layer], pool_mode))".format(target_layer)
+    #     hooks[target_layer] = eval(command)
+    
+    # with torch.no_grad():
+    #     for images, labels in tqdm(DataLoader(dataset, batch_size, num_workers=8, pin_memory=True)):
+    #         features = target_model(images.to(device))
+    
+    # for target_layer in target_layers:
+    #     torch.save(torch.cat(all_features[target_layer]), save_names[target_layer])
+    #     hooks[target_layer].remove()
+    # #free memory
+    # del all_features
+    # torch.cuda.empty_cache()
+    # return
 
 def save_clip_image_features(model, dataset, save_name, batch_size=1000 , device = "cuda"):
     _make_save_dir(save_name)
@@ -140,7 +163,7 @@ def save_activations(clip_name, target_name, target_layers, d_probe,
                                 target_layer = '{}', d_probe = d_probe, concept_set = concept_set,
                                 pool_mode=pool_mode, save_dir = save_dir)
     target_save_name, clip_save_name, text_save_name = save_names
-    
+
     save_clip_text_features(clip_model, text, text_save_name, batch_size)
     save_clip_image_features(clip_model, data_c, clip_save_name, batch_size, device)
     save_target_activations(target_model, data_t, target_save_name, target_layers,

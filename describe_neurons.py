@@ -44,7 +44,7 @@ if __name__ == '__main__':
                            concept_set = args.concept_set, batch_size = args.batch_size, 
                            device = args.device, pool_mode=args.pool_mode, 
                            save_dir = args.activation_dir)
-    
+
     outputs = {"layer":[], "unit":[], "description":[], "similarity":[]}
     with open(args.concept_set, 'r') as f: 
         words = (f.read()).split('\n')
